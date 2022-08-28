@@ -1,0 +1,63 @@
+/*
+  Analog Input
+
+  This code listens to the input on A0, scales it up to 4096, modifies it slightly and sends it
+  to a DAC that rebroadcasts it.
+
+  There are some residual code from the example used as a basis for the sketch
+
+  It is intended to reduce the dead zone in the steering of a Trekker scooter
+
+  This version also has code in to move the centre point of the dead zone
+
+  28/8/22
+
+*/
+#include<Wire.h>
+int sensorPin = A0;    // select the input pin for the potentiometer
+unsigned int ipValue = 0;  // variable to store the digital value coming from the sensor
+float ipVolts = 0 ; // variable to store the voltage value calculated from the digital value
+byte buffer[3];  // this buufer carries the control code in 0, and two bytes of data in 1 and 2
+#define MCP4725 0x60 //MCP4725 is the DAC chip with address 0x60
+float opVolts ; // this is the volts we want to appear on the output pin of the DAC
+int opValue; // this is the digital value to send to the DAC
+
+void setup() {
+  Wire.begin();       //Begins the I2C communication
+  Serial.begin(115200);
+}
+
+void loop() {
+  buffer[0] = 0b01000000; // control code
+  // read the value from the sensor and multiply by 4 to get range 0 - 4096
+  ipValue = analogRead(sensorPin) * 4;
+   ipVolts = (5.0 / 4096.0) * ipValue; // 5V is full scale 4096,
+   //so voltage is the digital reading x this factor
+   // subtract 41 (0.05V) for every degree we want to shift the centre point of the dead zone to the left (anticlockwise)
+   ipValue = ipValue - 0;
+   // if the voltage is between 2.6 and 2.7 then let the DAC put out this voltage
+   // otherwise increase it or decrease it by 0.1V (82 points) and put it out
+  opValue = ipValue;
+  if (ipVolts > 2.67) {
+    opValue = ipValue + 82;
+  }
+  if (ipVolts < 2.63) {
+    opValue = ipValue - 82;
+  }
+  opVolts =  opValue * (5.0 / 4096.0);
+  buffer[1] = opValue >> 4;
+  buffer[2] = opValue << 4;
+  Serial.print(ipVolts);
+  Serial.print(", ");
+  Serial.println(opVolts);
+
+  // send the data to the DAC
+  Wire.beginTransmission(MCP4725);
+  Wire.write(buffer[0]);
+  Wire.write(buffer[1]);
+  Wire.write(buffer[2]);
+  Wire.endTransmission();
+  
+  // stop the program for for 1 millisecond to allow DAC to settle:
+  delay(1);
+}
