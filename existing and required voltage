@@ -1,14 +1,15 @@
 										
 tiller degrees	existing	  required
                 (measured)
--3			2.8	        2.9								
--2	            2.75	      2.85								
--1	            2.7	        2.8								
+-3	    	      2.8	      2.9								
+-2	              2.75	      2.85								
+-1	              2.7	      2.8								
 0	              2.65	      2.65								
-1	              2.6	        2.5								
+1	              2.6	      2.5								
 2	              2.55	      2.45								
-3	              2.5	        2.4								
+3	              2.5	      2.4								
 									
-									
-									
+The above figures were measure and specified for the trekker vehicle.
+
+For the EcoRider the values are reversed, so the table can be read by converting the minus degrees to positive (where positive is clockwise for RH turn)									
 									
