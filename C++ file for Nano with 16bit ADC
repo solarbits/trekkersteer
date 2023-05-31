@@ -1,0 +1,94 @@
+  
+/*
+  Analog Input
+
+  This code listens to the input on a 16-bit ADC board, scales it down to 4096, modifies it slightly and sends it
+  to a DAC that rebroadcasts it.
+
+  There are some residual code from the example used as a basis for the sketch
+
+  It is intended to reduce the dead zone in the steering of an EcoRider scooter
+
+  This version also has code in to move the centre point of the dead zone
+  28/8/22
+
+  And this version makes a smooth transition between the start-of-enhancement points (>2.7V and <2.6V)
+  to avoid jerky response
+  26/01/23
+
+  The 16-bit ADC was added recently
+
+  This was up loaded into the prototype on 11/5/23
+
+*/
+#include<Wire.h>
+#include <Adafruit_ADS1X15.h>
+Adafruit_ADS1115 ads;
+int sensorPin = A0;    // select the input pin for the potentiometer
+unsigned int ipValue = 0;  // variable to store the digital value coming from the sensor
+float ipVolts = 0 ; // variable to store the voltage value calculated from the digital value
+byte buffer[3];  // this buffer carries the control code in 0, and two bytes of data in 1 and 2
+#define MCP4725 0x60 //MCP4725 is the DAC chip with address 0x60
+float opVolts ; // this is the volts we want to appear on the output pin of the DAC
+unsigned int opValue; // this is the digital value to send to the DAC
+
+void setup() {
+ // Wire.begin();       //Begins the I2C communication
+  Serial.begin(115200);
+  ads.begin();
+}
+
+void loop() {
+  int16_t adc0;
+  buffer[0] = 0b01000000; // control code for DAC
+  // read the value from the sensor and multiply by 4 to get range 0 - 4096
+  //ipValue = analogRead(sensorPin) * 4;
+  //read the value from the sensor and divide by 8 to get in range 0 - 4096
+   adc0 = ads.readADC_SingleEnded(0);
+   ipValue = adc0 / 8;
+  // convert to volts noting that 6.144V is full range
+  ipVolts = (6.144 / 4096.0) * ipValue;
+   // subtract 0.05V for every degree we want to shift the centre point of the dead zone to the left (anticlockwise)
+   ipVolts = ipVolts + 0.0;
+   // If the volts are less than 2.6 (or greater than 2.7) then subtract (or add) 0.1V 
+   //to make the steering more responsive
+  if (ipVolts >= 2.7) {
+    opVolts = ipVolts + 0.1;
+  }
+  if (ipVolts <= 2.6) {
+    opVolts = ipVolts - 0.1;
+  }
+  // If it is between these two values then do a smooth linear transition
+  if ((ipVolts <= 2.7) and (ipVolts >= 2.6)) {
+ opVolts = ipVolts + (2 * (ipVolts - 2.65)); 
+    // 2.65 is nominally straight ahead      
+  }
+  // now convert the output volts to a number to send to the DAC noting that 5.1V is full range and the voltage of the ecorider
+  opValue = opVolts * (4096/5.10);
+  buffer[1] = opValue >> 4;
+  buffer[2] = opValue << 4;
+/* Serial.print("ipV "); 
+Serial.print (ipVolts);
+  Serial.print(", ");
+  Serial.print("opV ");
+Serial.print (opVolts);
+  Serial.print(", ");
+ Serial.print("ipVa ");
+ Serial.print (ipValue);
+  Serial.print(", ");
+    Serial.print("opVa ");
+    Serial.println (opValue);
+   // delay(10);
+     Serial.print(", ");
+  */  
+
+  // send the data to the DAC
+  Wire.beginTransmission(MCP4725);
+  Wire.write(buffer[0]);
+  Wire.write(buffer[1]);
+  Wire.write(buffer[2]);
+  Wire.endTransmission();
+  
+  // stop the program for for 1 millisecond to allow DAC to settle:
+  //delay(10);
+}
